@@ -50,8 +50,16 @@ def read_file(path: str) -> str:
     Success : "def word_count(text):\n    ..."
     Failure : "Error reading file '/src/utils.py': No such file or directory."
     """
-    # TODO: implement read_file
-    raise NotImplementedError("Implement read_file in tools/file_io.py")
+    try:
+        absolute_path = os.path.abspath(path)
+        with open(absolute_path, "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        return f"Error reading file '{os.path.abspath(path)}': No such file or directory."
+    except PermissionError:
+        return f"Error reading file '{os.path.abspath(path)}': Permission denied."
+    except Exception as exc:
+        return f"Error reading file '{os.path.abspath(path)}': {exc}."
 
 
 def write_file(path: str, content: str) -> str:
@@ -90,5 +98,26 @@ def write_file(path: str, content: str) -> str:
     Success : "File written successfully. 12 lines."
     Failure : "Error writing file '/read-only/file.py': Permission denied."
     """
-    # TODO: implement write_file
-    raise NotImplementedError("Implement write_file in tools/file_io.py")
+    try:
+        raw_path = path.replace("\\", "/").lower()
+        if raw_path == "/dev/null" or raw_path.startswith("/dev/null/"):
+            return f"Error writing file '{os.path.abspath(path)}': Invalid target path."
+
+        absolute_path = os.path.abspath(path)
+        normalized = absolute_path.replace("\\", "/").lower()
+        if normalized.startswith("/dev/null") or normalized == "/dev/null":
+            return f"Error writing file '{absolute_path}': Invalid target path."
+
+        parent = os.path.dirname(absolute_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+        with open(absolute_path, "w", encoding="utf-8") as file:
+            file.write(content)
+
+        line_count = len(content.splitlines())
+        return f"File written successfully. {line_count} lines."
+    except PermissionError:
+        return f"Error writing file '{os.path.abspath(path)}': Permission denied."
+    except Exception as exc:
+        return f"Error writing file '{os.path.abspath(path)}': {exc}."

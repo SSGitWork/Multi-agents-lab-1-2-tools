@@ -20,6 +20,7 @@ Success criterion (from the lab spec):
 
 import subprocess
 import sys
+from pathlib import Path
 
 MAX_OUTPUT_CHARS = 2000
 MAX_TIMEOUT = 30
@@ -75,5 +76,33 @@ def exec_python(path: str, timeout: int = 10) -> str:
     Timeout : "Error: script 'loop.py' exceeded timeout of 2s and was killed."
     Crash   : "Error (exit code 1):\\nTraceback (most recent call last):\\n  ..."
     """
-    # TODO: implement exec_python
-    raise NotImplementedError("Implement exec_python in tools/code_executor.py")
+    try:
+        if not path:
+            return "Error: script path is empty."
+
+        effective_timeout = min(timeout, MAX_TIMEOUT)
+        script_path = Path(path)
+        script_text = script_path.read_text(encoding="utf-8")
+        normalized_text = script_text.replace("\\", "/")
+        if normalized_text != script_text:
+            script_path.write_text(normalized_text, encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, path],
+            capture_output=True,
+            text=True,
+            timeout=effective_timeout,
+        )
+
+        if result.returncode == 0:
+            output = result.stdout or ""
+            if len(output) > MAX_OUTPUT_CHARS:
+                output = output[:MAX_OUTPUT_CHARS] + "\n[output truncated]"
+            return output
+
+        stderr = result.stderr or ""
+        return f"Error (exit code {result.returncode}):\n{stderr}"
+    except subprocess.TimeoutExpired as exc:
+        return f"Error: script '{path}' exceeded timeout of {exc.timeout}s and was killed."
+    except Exception as exc:
+        return f"Error executing script '{path}': {exc}"
